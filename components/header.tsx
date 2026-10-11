@@ -44,18 +44,18 @@ export function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-neutral-200/80 bg-background/80 backdrop-blur dark:border-neutral-800">
-      <div className="relative mx-auto flex h-16 w-full max-w-7xl items-center justify-center px-6 sm:px-10 lg:px-12">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-neutral-200/70 bg-white/75 backdrop-blur-md dark:border-neutral-800/70 dark:bg-neutral-950/75 transition-colors duration-200">
+      <div className="relative mx-auto flex h-16 w-full max-w-7xl items-center justify-between sm:justify-center px-4 sm:px-10 lg:px-12">
         {/* Navegación centrada con rayita indicadora activa */}
         <nav className="flex items-center justify-center">
-          <ul className="flex items-center gap-6 sm:gap-8 text-sm font-medium">
+          <ul className="flex items-center gap-3.5 sm:gap-6 md:gap-8 text-xs sm:text-sm font-medium">
             {links.map((l) => {
               const isActive = activeSection === l.href;
               return (
                 <li key={l.href} className="relative py-1">
                   <a
                     href={l.href}
-                    className={`transition-colors duration-200 ${
+                    className={`cursor-pointer transition-colors duration-200 ${
                       isActive
                         ? 'text-neutral-950 font-semibold dark:text-white'
                         : 'text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white'
@@ -77,7 +77,7 @@ export function Header() {
         </nav>
 
         {/* Toggle de tema a la derecha */}
-        <div className="absolute right-6 sm:right-10 lg:right-12 flex items-center">
+        <div className="sm:absolute sm:right-10 lg:right-12 flex items-center shrink-0 ml-2">
           <ThemeToggle />
         </div>
       </div>

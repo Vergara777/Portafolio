@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import {
   motion,
@@ -11,23 +11,22 @@ import {
   animate,
   type PanInfo,
 } from 'framer-motion';
-import { Download, ArrowRight, ArrowDown } from 'lucide-react';
+import { Download, ArrowRight, ArrowDown, Move } from 'lucide-react';
 import { profile } from '@/data/profile';
 import { getTechIcon, GithubIcon, LinkedinIcon, BitbucketIcon } from '@/components/icons';
 import TextType from '@/components/TextType';
 
 const highlightTechs = ['Angular', 'Spring Boot', 'React', 'Docker', 'MySQL'];
-const BASE_BADGE_Y = 220;
 
 // Cálculo matemático preciso de la cinta del Lanyard:
 // - start: nace exactamente en el anclaje del header (x: 144, y: 2)
-// - pivot: punto de rotación del carnet (144 + currX, BASE_BADGE_Y + currY)
+// - pivot: punto de rotación del carnet (144 + currX, baseY + currY)
 // - end: entra 14px dentro de la abrazadera metálica siguiendo la misma tangente
-const getStrapD = (currX: number, currY: number) => {
+const getStrapD = (currX: number, currY: number, baseY: number = 200) => {
   const startX = 144;
   const startY = 2;
   const pivotX = 144 + currX;
-  const pivotY = BASE_BADGE_Y + currY;
+  const pivotY = baseY + currY;
 
   const dx = pivotX - startX;
   const dy = Math.max(30, pivotY - startY);
@@ -50,9 +49,15 @@ const getStrapD = (currX: number, currY: number) => {
   return `M ${startX} ${startY} C ${cp1X.toFixed(1)} ${cp1Y.toFixed(1)} ${cp2X.toFixed(1)} ${cp2Y.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`;
 };
 
-const INITIAL_STRAP_D = getStrapD(0, 0);
+const DEFAULT_BASE_Y = 110;
+const INITIAL_STRAP_D = getStrapD(0, 0, DEFAULT_BASE_Y);
 
 export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
+  // Altura base adaptativa del carnet:
+  // - Se sube un poco más para que la tarjeta de la persona se vea 100% completa sin cortarse
+  const [baseBadgeY, setBaseBadgeY] = useState(DEFAULT_BASE_Y);
+  const baseBadgeYRef = useRef(DEFAULT_BASE_Y);
+
   // Motion values para la física del carnet y la cinta interactiva
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -60,7 +65,7 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
   // Inclinación física natural del carnet:
   // El ángulo del carnet y la abrazadera metálica coinciden exactamente con la línea de la cinta (0° de desfase)
   const dragRotate = useTransform([x, y], ([latestX, latestY]: any[]) => {
-    const currentY = Math.max(30, BASE_BADGE_Y + (latestY ?? 0) - 2);
+    const currentY = Math.max(30, baseBadgeYRef.current + (latestY ?? 0) - 2);
     const currentX = latestX ?? 0;
     const angleRad = Math.atan2(currentX, currentY);
     return angleRad * (180 / Math.PI);
@@ -75,7 +80,7 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
   const lastPathD = useRef<string>('');
 
   const updateStrapDOM = useCallback((currX: number, currY: number) => {
-    const d = getStrapD(currX, currY);
+    const d = getStrapD(currX, currY, baseBadgeYRef.current);
     if (lastPathD.current === d) return;
     lastPathD.current = d;
 
@@ -85,6 +90,40 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
     if (strapStitchRef.current) strapStitchRef.current.setAttribute('d', d);
     if (strapCurveRef.current) strapCurveRef.current.setAttribute('d', d);
   }, []);
+
+  // Adaptación lógica según tamaño de pantalla / viewport
+  useEffect(() => {
+    const updateDimensions = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      let targetY = 115;
+
+      if (w < 640) {
+        // En móviles: cinta compacta
+        targetY = 65;
+      } else if (w < 960) {
+        // En tablets
+        targetY = 80;
+      } else if (w < 1200 || h < 760) {
+        // En laptops como ThinkPad o pantallas con menor altura vertical
+        targetY = 95;
+      } else if (w < 1440 || h < 860) {
+        // En pantallas medianas
+        targetY = 115;
+      } else {
+        // En monitores grandes de escritorio
+        targetY = 135;
+      }
+
+      setBaseBadgeY(targetY);
+      baseBadgeYRef.current = targetY;
+      updateStrapDOM(x.get(), y.get());
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, [updateStrapDOM, x, y]);
 
   // 1. Sincronización inmediata al mover el ratón (se ejecuta sincrónicamente con el evento de arrastre):
   useMotionValueEvent(x, 'change', (latestX) => {
@@ -151,21 +190,22 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
       <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-30 -z-10" />
       <div className="absolute -top-32 right-1/4 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl pointer-events-none -z-10" />
 
-      <div className="relative grid items-start gap-10 lg:grid-cols-12 lg:gap-12">
+      {/* Grid adaptable: A partir de 960px (incluyendo ThinkPads y laptops 1000px-1200px) se coloca lado a lado */}
+      <div className="relative grid items-start gap-8 min-[960px]:grid-cols-12 min-[960px]:gap-8 lg:gap-12">
         {/* Columna Izquierda: Información Principal */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col items-start lg:col-span-7 pt-8 sm:pt-12 lg:pt-20"
+          className="flex flex-col items-start min-[960px]:col-span-7 pt-4 sm:pt-8 min-[960px]:pt-10 lg:pt-16"
         >
-          {/* Contenedor del Título con altura mínima reservada y layout animado suave */}
+          {/* Contenedor del Título con altura adaptable y layout animado suave */}
           <motion.div
             layout
             transition={{ layout: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
-            className="w-full max-w-2xl select-none min-h-[140px] sm:min-h-[190px] lg:min-h-[210px] flex items-center"
+            className="w-full max-w-2xl select-none min-h-[90px] sm:min-h-[140px] md:min-h-[160px] lg:min-h-[190px] flex items-center"
           >
-            <h1 className="text-5xl font-black tracking-tight sm:text-7xl lg:text-8xl leading-[1.08] text-neutral-950 dark:text-white select-none">
+            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[1.08] text-neutral-950 dark:text-white select-none">
               <TextType
                 text={['Full-stack Developer', 'Software Engineer']}
                 typingSpeed={75}
@@ -179,36 +219,36 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
             </h1>
           </motion.div>
 
-          {/* Subtítulo tipo terminal con layout animado suave pegado a la medida adecuada */}
+          {/* Subtítulo tipo terminal */}
           <motion.p
             layout
             transition={{ layout: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
-            className="mt-2 font-mono text-sm tracking-wide text-neutral-500 dark:text-neutral-400"
+            className="mt-2 font-mono text-xs sm:text-sm tracking-wide text-neutral-500 dark:text-neutral-400"
           >
             Software Engineer • Junior Programmer _
           </motion.p>
 
-          {/* Descripción bio con layout animado suave */}
+          {/* Descripción bio */}
           <motion.p
             layout
             transition={{ layout: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
-            className="mt-4 max-w-xl text-base leading-relaxed text-neutral-600 sm:text-lg dark:text-neutral-300/85"
+            className="mt-3 sm:mt-4 max-w-xl text-sm sm:text-base lg:text-lg leading-relaxed text-neutral-600 dark:text-neutral-300/85"
           >
             {profile.tagline}
           </motion.p>
 
-          {/* Pills con iconos reales oficiales (fondo sólido para que no transparente la malla) */}
+          {/* Pills con iconos reales oficiales */}
           <motion.div
             layout
             transition={{ layout: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
-            className="mt-5 flex flex-wrap gap-2"
+            className="mt-4 sm:mt-5 flex flex-wrap gap-1.5 sm:gap-2"
           >
             {highlightTechs.map((tech) => (
               <span
                 key={tech}
-                className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-xs dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-medium text-neutral-700 shadow-xs dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
               >
-                {getTechIcon(tech, 15)}
+                {getTechIcon(tech, 14)}
                 <span>{tech}</span>
               </span>
             ))}
@@ -218,51 +258,51 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
           <motion.div
             layout
             transition={{ layout: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
-            className="mt-8 flex flex-wrap items-center gap-4"
+            className="mt-6 sm:mt-8 flex flex-wrap items-center gap-3 sm:gap-4"
           >
             <a
               href="#projects"
-              className="group flex items-center gap-2 rounded-xl bg-neutral-900 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100"
+              className="group flex items-center gap-2 rounded-xl bg-neutral-900 px-5 py-3 sm:px-6 sm:py-3.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100"
             >
               Ver proyectos
-              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+              <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
             </a>
 
             <a
               href={profile.cv}
               download="Luis_Eduardo_Vergara_CV.pdf"
-              className="flex items-center gap-2 rounded-xl border border-neutral-300 bg-white px-5 py-3.5 text-sm font-semibold transition hover:bg-neutral-100 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:hover:border-neutral-700 shadow-xs"
+              className="flex items-center gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm font-semibold transition hover:bg-neutral-100 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:hover:border-neutral-700 shadow-xs"
             >
-              <Download size={16} /> Descargar CV
+              <Download size={15} /> Descargar CV
             </a>
 
-            <div className="flex items-center gap-2 pl-1">
+            <div className="flex items-center gap-2">
               <a
                 href={profile.github}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="GitHub"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-300 bg-white transition hover:scale-105 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600 shadow-xs"
+                className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl border border-neutral-300 bg-white transition hover:scale-105 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600 shadow-xs"
               >
-                <GithubIcon size={19} />
+                <GithubIcon size={18} />
               </a>
               <a
                 href={profile.bitbucket}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Bitbucket"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-300 bg-white transition hover:scale-105 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600 shadow-xs"
+                className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl border border-neutral-300 bg-white transition hover:scale-105 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600 shadow-xs"
               >
-                <BitbucketIcon size={19} />
+                <BitbucketIcon size={18} />
               </a>
               <a
                 href={profile.linkedin}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="LinkedIn"
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-300 bg-white transition hover:scale-105 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600 shadow-xs"
+                className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl border border-neutral-300 bg-white transition hover:scale-105 hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600 shadow-xs"
               >
-                <LinkedinIcon size={19} />
+                <LinkedinIcon size={18} />
               </a>
             </div>
           </motion.div>
@@ -271,7 +311,7 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
           <motion.div
             layout
             transition={{ layout: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }}
-            className="mt-8 flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400"
+            className="mt-6 sm:mt-8 flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-400"
           >
             <ArrowDown size={14} className="animate-bounce" />
             <span>explore my work below / open to opportunities</span>
@@ -279,8 +319,8 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
         </motion.div>
 
         {/* Columna Derecha: Carnet Colgante que Nace Directamente en el Header */}
-        <div className="relative flex justify-center lg:col-span-5 lg:justify-end pt-0">
-          <div className="relative w-72 min-h-[640px] flex flex-col items-center">
+        <div className="relative flex justify-center min-[960px]:col-span-5 min-[960px]:justify-end min-[960px]:pr-10 lg:pr-16 xl:pr-24 pt-4 min-[960px]:pt-0 w-full">
+          <div className="relative w-64 sm:w-72 min-h-[420px] sm:min-h-[460px] lg:min-h-[560px] flex flex-col items-center">
             {/* Soporte fijo en la orilla exacta del header (0px de espacio, pegado al header) */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
               <div className="h-3.5 w-16 rounded-b-md bg-neutral-900 border-x border-b border-neutral-700 shadow-2xl flex items-center justify-center">
@@ -349,19 +389,19 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
 
             {/* Carnet y Gancho Arrastrables:
                 - transformOrigin: 'top center' para que la rotación pivote exactamente en el clip
-                - El clip se mantiene 100% sincronizado con el extremo de la cinta en tiempo real a 120 FPS
+                - top: dinámico según resolución para adaptarse perfectamente a ThinkPads y monitores grandes
             */}
             <motion.div
               drag
               dragElastic={0.2}
-              dragConstraints={{ left: -160, right: 160, top: -70, bottom: 180 }}
+              dragConstraints={{ left: -140, right: 140, top: -60, bottom: 160 }}
               onDragEnd={handleDragEnd}
               style={{
                 x,
                 y,
                 rotate: dragRotate,
                 transformOrigin: 'top center',
-                top: `${BASE_BADGE_Y}px`,
+                top: `${baseBadgeY}px`,
               }}
               whileHover={{ cursor: 'grab' }}
               whileDrag={{ cursor: 'grabbing' }}
@@ -381,41 +421,42 @@ export function Hero({ welcomeDone }: { welcomeDone?: boolean }) {
               </div>
 
               {/* Tarjeta de Identificación / ID Badge */}
-              <div className="relative -mt-1 w-64 sm:w-72 rounded-3xl border-4 border-white bg-white p-3.5 shadow-2xl shadow-black/45 dark:border-neutral-700 dark:bg-neutral-900 transition-shadow">
+              <div className="relative -mt-1 w-[260px] sm:w-68 lg:w-72 rounded-3xl border-4 border-white bg-white p-3 sm:p-3.5 shadow-2xl shadow-black/45 dark:border-neutral-700 dark:bg-neutral-900 transition-shadow">
                 {/* Ranura superior del porta-carnet para el gancho */}
-                <div className="mx-auto mb-3 h-2.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700 shadow-inner" />
+                <div className="mx-auto mb-2.5 sm:mb-3 h-2.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700 shadow-inner" />
 
                 {/* Foto a color normal - NO arrastra fantasma, permite arrastrar el carnet completo */}
-                <div className="relative h-72 sm:h-80 w-full overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800 shadow-inner select-none pointer-events-none">
+                <div className="relative h-60 sm:h-64 lg:h-72 w-full overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800 shadow-inner select-none pointer-events-none">
                   <Image
                     src="/images/FotoPerfil.png"
                     alt={profile.name}
                     fill
                     priority
                     draggable={false}
-                    sizes="(max-width: 640px) 256px, 288px"
+                    sizes="(max-width: 640px) 240px, 288px"
                     className="object-cover object-top select-none pointer-events-none"
                     style={{ userSelect: 'none' }}
                   />
 
                   {/* Gradiente inferior con datos del perfil en el carnet */}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-4 text-white">
-                    <p className="text-base font-extrabold tracking-tight">{profile.name} E. Vergara</p>
-                    <p className="text-xs text-neutral-300 font-mono">Full-stack Developer</p>
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3.5 sm:p-4 text-white">
+                    <p className="text-sm sm:text-base font-extrabold tracking-tight">{profile.name}</p>
+                    <p className="text-[11px] sm:text-xs text-neutral-300 font-mono">Full-stack Developer</p>
                   </div>
                 </div>
 
                 {/* Pie del carnet con código y chip simulado */}
-                <div className="mt-3 flex items-center justify-between px-1 text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
+                <div className="mt-2.5 sm:mt-3 flex items-center justify-between px-1 text-[9px] sm:text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
                   <span>COLOMBIA • 2026</span>
-                  <span className="h-2 w-8 rounded-xs bg-neutral-300 dark:bg-neutral-700" />
+                  <span className="h-2 w-7 sm:w-8 rounded-xs bg-neutral-300 dark:bg-neutral-700" />
                   <span>DEV-ID: #777</span>
                 </div>
               </div>
 
               {/* Indicador para arrastrar */}
-              <span className="mt-3 text-[11px] font-mono text-neutral-400 opacity-60 hover:opacity-100 transition pointer-events-none">
-                ✦ ¡Arrastra el carnet con el cursor!
+              <span className="mt-2.5 sm:mt-3 inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono text-neutral-400 opacity-60 hover:opacity-100 transition pointer-events-none">
+                <Move size={11} className="opacity-80" />
+                <span>Arrastra el carnet con el cursor</span>
               </span>
             </motion.div>
           </div>

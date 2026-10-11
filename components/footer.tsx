@@ -3,6 +3,7 @@
 import { profile } from '@/data/profile';
 import { GithubIcon, LinkedinIcon, BitbucketIcon } from '@/components/icons';
 import { Mail, ArrowUp } from 'lucide-react';
+import { EmailContactButton } from '@/components/EmailModal';
 
 export function Footer() {
   const scrollToTop = () => {
@@ -25,13 +26,10 @@ export function Footer() {
 
           {/* Contacto directo y Redes */}
           <div className="flex items-center gap-5 text-sm">
-            <a
-              href={`mailto:${profile.email}`}
-              className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white transition-colors"
-            >
+            <EmailContactButton className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer">
               <Mail size={15} />
               <span>{profile.email}</span>
-            </a>
+            </EmailContactButton>
 
             <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
 
