@@ -96,7 +96,7 @@ export function WelcomeScreen({ onFinished }: { onFinished?: () => void }) {
               transition={{ delay: 0.55, duration: 0.4 }}
               className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs text-neutral-400 font-mono tracking-wide"
             >
-              <span>www.luisvergara.dev</span>
+              <span>https://portafolio-three-puce.vercel.app/</span>
             </motion.div>
           </div>
 
