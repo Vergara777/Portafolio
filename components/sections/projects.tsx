@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { ExternalLink, FolderGit2, X, ArrowUpRight } from 'lucide-react';
 import { Section } from '@/components/section';
 import { projects } from '@/data/projects';
@@ -21,6 +21,22 @@ const folderFilters = [
 
 export function Projects() {
   const [selectedFilter, setSelectedFilter] = useState<string>('Todos');
+  const [folderOpen, setFolderOpen] = useState(false);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+
+  const folderContainerRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(folderContainerRef, { amount: 0.35, once: false });
+
+  // Apertura automática cinematográfica al llegar a la sección de proyectos
+  useEffect(() => {
+    if (isInView && !hasAutoOpened) {
+      const timer = setTimeout(() => {
+        setFolderOpen(true);
+        setHasAutoOpened(true);
+      }, 380);
+      return () => clearTimeout(timer);
+    }
+  }, [isInView, hasAutoOpened]);
 
   // Filtrar proyectos según la píldora seleccionada en FolderFloat
   const filteredProjects = projects.filter((p) => {
@@ -40,11 +56,14 @@ export function Projects() {
     >
       {/* Componente Interactivo FolderFloat de React Bits como Filtro Dinámico */}
       <div className="mb-12 flex flex-col items-center justify-center rounded-3xl border border-neutral-200 bg-white p-6 sm:p-8 text-center shadow-md dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="relative py-2 flex justify-center w-full">
+        <div ref={folderContainerRef} className="relative py-2 flex justify-center w-full">
           <FolderFloat
             items={folderFilters}
             label="Filtrar Proyectos"
-            sublabel="Pasa el cursor o haz clic para abrir"
+            sublabel="Toca o pasa el cursor para abrir"
+            open={folderOpen}
+            onOpenChange={(next) => setFolderOpen(next)}
+            closeOnSelect={false}
             trigger="hover"
             physics
             drift={0.5}
