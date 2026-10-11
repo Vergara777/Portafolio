@@ -70,6 +70,7 @@ export interface FolderFloatProps {
   label?: string;
   sublabel?: string;
   trigger?: 'hover' | 'click';
+  open?: boolean;
   defaultOpen?: boolean;
   closeOnSelect?: boolean;
   physics?: boolean;
@@ -101,6 +102,7 @@ export default function FolderFloat({
   label = 'Design feedback',
   sublabel = '',
   trigger = 'hover',
+  open: controlledOpen,
   defaultOpen = false,
   closeOnSelect = true,
   physics = true,
@@ -126,7 +128,9 @@ export default function FolderFloat({
   bounce = 0.3,
   className = ''
 }: FolderFloatProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
   const [popped, setPopped] = useState(-1);
   const [live, setLive] = useState(false);
   const [sizes, setSizes] = useState<Size[]>([]);
@@ -296,14 +300,19 @@ export default function FolderFloat({
   const set = useCallback(
     (next: boolean) => {
       if (!next) stopPhysics();
-      setOpen(prev => {
-        if (prev === next) return prev;
-        latest.current.onOpenChange?.(next);
-        return next;
-      });
+      if (!isControlled) {
+        setInternalOpen(next);
+      }
+      latest.current.onOpenChange?.(next);
     },
-    [stopPhysics]
+    [stopPhysics, isControlled]
   );
+
+  useEffect(() => {
+    if (controlledOpen !== undefined && !controlledOpen) {
+      stopPhysics();
+    }
+  }, [controlledOpen, stopPhysics]);
 
   useEffect(() => {
     clearTimeout(liveTimer.current);
@@ -408,10 +417,18 @@ export default function FolderFloat({
       data-live={live ? '' : undefined}
       data-physics={physics ? '' : undefined}
       data-trigger={trigger}
-      onPointerEnter={hover ? () => set(true) : undefined}
+      onPointerEnter={
+        hover
+          ? e => {
+              if (e.pointerType === 'touch') return;
+              set(true);
+            }
+          : undefined
+      }
       onPointerLeave={
         hover
-          ? () => {
+          ? e => {
+              if (e.pointerType === 'touch') return;
               if (!world.current.drag) set(false);
             }
           : undefined
@@ -490,10 +507,13 @@ export default function FolderFloat({
         </span>
         <button
           type="button"
-          className="folder-float__trigger"
+          className="folder-float__trigger cursor-pointer"
           aria-expanded={open}
           aria-label={`${label}, ${sub}`}
-          onClick={() => set(!open)}
+          onClick={e => {
+            e.stopPropagation();
+            set(!open);
+          }}
         />
       </div>
     </div>
