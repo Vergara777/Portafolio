@@ -2,6 +2,7 @@ import { Mail } from 'lucide-react';
 import { Section } from '@/components/section';
 import { profile } from '@/data/profile';
 import { GithubIcon, LinkedinIcon, BitbucketIcon } from '@/components/icons';
+import { EmailContactButton } from '@/components/EmailModal';
 
 export function Contact() {
   return (
@@ -16,13 +17,10 @@ export function Contact() {
           ¿Tienes una idea, una vacante o quieres que trabajemos juntos? Escríbeme y te respondo lo más pronto posible.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-          <a
-            href={`mailto:${profile.email}`}
-            className="flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background transition hover:opacity-90 shadow-sm"
-          >
+          <EmailContactButton className="flex items-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-medium text-background transition hover:opacity-90 shadow-sm cursor-pointer">
             <Mail size={18} />
             <span>{profile.email}</span>
-          </a>
+          </EmailContactButton>
           <a
             href={profile.github}
             target="_blank"

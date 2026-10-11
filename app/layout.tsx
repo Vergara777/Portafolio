@@ -9,6 +9,9 @@ import CursorWave from '@/components/CursorWave';
 export const metadata: Metadata = {
   title: 'Luis E. Vergara | Full-stack Developer',
   description: 'Portafolio de Luis E. Vergara, desarrollador full-stack.',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
@@ -17,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body className="antialiased relative min-h-screen" suppressHydrationWarning>
+    <html lang="es" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
+      <body className="antialiased relative min-h-screen bg-neutral-950 text-neutral-100" suppressHydrationWarning>
         <ThemeProvider>
           {/* Fondo interactivo global CursorWave en toda la pantalla hasta el footer */}
           <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden opacity-85 dark:opacity-80">
@@ -39,7 +42,7 @@ export default function RootLayout({
           </div>
 
           <Header />
-          <main className="mx-auto w-full max-w-7xl px-6 sm:px-10 lg:px-12 relative">{children}</main>
+          <main className="mx-auto w-full max-w-7xl px-4 sm:px-8 lg:px-12 relative pt-16">{children}</main>
           <Footer />
         </ThemeProvider>
       </body>
